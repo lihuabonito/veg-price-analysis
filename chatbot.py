@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import os
 import re
 import openai
+from openai import OpenAI
 import difflib
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
