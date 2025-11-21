@@ -196,6 +196,17 @@ def make_recipe_bubble(row, default_img, veg_display=None):
         }
     }
 
+# 先把主要食材和輔助食材拆成單一食材
+main_ingredients = df_recipe["主要食材"].dropna().tolist()
+sub_ingredients = df_recipe["輔助食材"].dropna().tolist()
+
+# 拆頓號
+all_vegs = []
+for item in main_ingredients + sub_ingredients:
+    all_vegs.extend([x.strip() for x in item.split('、')])
+
+# 去重
+all_vegs = list(set(all_vegs))
 
 # ============================
 # 主功能：訊息處理
@@ -232,33 +243,13 @@ def handle_user_message(user_input):
                 df_recipe["輔助食材"].str.contains(veg_search, na=False)
             ]
             if recipes.empty:
-                all_vegs = list(name_map.keys())
                 matches = difflib.get_close_matches(veg, all_vegs, n=1, cutoff=0.6)
                 if matches:
                     suggestion = display_map.get(matches[0], matches[0])
-                    bubble = {
-                        "type": "bubble",
-                          "body": {
-                                "type": "box",
-                                "layout": "vertical",
-                                "contents": [
-                                    {"type": "text", "text": f"你是不是想查 {suggestion}？", "wrap": True, "size": "md"}
-                                ]
-                          }
-                    }
+                    return TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")
                 else:
                     answer = chatgpt_reply(f"用戶輸入：{veg}。只回答與蔬菜或食譜相關的問題，如果不是，請回答：請詢問與菜相關的問題")
-                    bubble = {
-                        "type": "bubble",
-                        "body": {
-                            "type": "box",
-                            "layout": "vertical",
-                            "contents": [
-                                {"type": "text", "text": answer, "wrap": True, "size": "sm"}
-                            ]
-                        }
-                    }
-                bubbles.append(bubble)
+                    return TextSendMessage(answer)
 
             else:
                 to_show = recipes if show_all else recipes.head(2)
