@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import os
 import re
 import openai
+import difflib
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import FlexSendMessage,MessageEvent,MessageAction, TextMessage, TextSendMessage
@@ -231,34 +232,34 @@ def handle_user_message(user_input):
                 df_recipe["輔助食材"].str.contains(veg_search, na=False)
             ]
             if recipes.empty:
-                bubble = {
-                    "type": "bubble",
-                    "hero": {
-                        "type": "image",
-                        "url": default_img,
-                        "size": "full",
-                        "aspectMode": "cover"
-                    },
-                    "body": {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {
-                                "type": "text",
-                                "text": f"{veg_display} 找不到食譜",
-                                "weight": "bold",
-                                "size": "lg"
-                            },
-                            {
-                                "type": "text",
-                                "text": "暫無建議菜單",
-                                "size": "sm",
-                                "wrap": True
-                            }
-                        ]
+                all_vegs = list(name_map.keys())
+                matches = difflib.get_close_matches(veg, all_vegs, n=1, cutoff=0.6)
+                if matches:
+                    suggestion = display_map.get(matches[0], matches[0])
+                    bubble = {
+                        "type": "bubble",
+                          "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {"type": "text", "text": f"你是不是想查 {suggestion}？", "wrap": True, "size": "md"}
+                                ]
+                          }
                     }
-                }
+                else:
+                    answer = chatgpt_reply(f"用戶輸入：{veg}。只回答與蔬菜或食譜相關的問題，如果不是，請回答：請詢問與菜相關的問題")
+                    bubble = {
+                        "type": "bubble",
+                        "body": {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {"type": "text", "text": answer, "wrap": True, "size": "sm"}
+                            ]
+                        }
+                    }
                 bubbles.append(bubble)
+
             else:
                 to_show = recipes if show_all else recipes.head(2)
                 for _, row in to_show.iterrows():
