@@ -125,7 +125,7 @@ OpenAI_API_key=os.getenv("OpenAI_API_key")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-OPENAI_API_KEY=OpenAI_API_key
+openai.api_key=OpenAI_API_key
 
 def chatgpt_reply(prompt):
     try:
