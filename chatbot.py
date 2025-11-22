@@ -148,8 +148,8 @@ def make_recipe_bubble(row, default_img, veg_display=None):
             "type": "image",
             "url": row.get("圖片網址", default_img),
             "size": "full",
-            "aspectRatio": "20:13",
-            "aspectMode": "cover"
+            "aspectRatio": "4:3",
+            "aspectMode": "fit"
         },
         "body": {
             "type": "box",
