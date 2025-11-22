@@ -246,10 +246,11 @@ def handle_user_message(user_input):
                 matches = difflib.get_close_matches(veg, all_vegs, n=1, cutoff=0.6)
                 if matches:
                     suggestion = display_map.get(matches[0], matches[0])
-                    return TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")
+                    return [], False, TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")")
                 else:
                     answer = chatgpt_reply(f"用戶輸入：{veg}。只回答與蔬菜或食譜相關的問題，如果不是，請回答：請詢問與菜相關的問題")
-                    return TextSendMessage(answer)
+                    
+                    return [], False, TextSendMessage(answer)
 
             else:
                 found_any_recipe = True
@@ -258,7 +259,7 @@ def handle_user_message(user_input):
                     bubble = make_recipe_bubble(row, default_img,veg_display=veg_display)
                     bubbles.append(bubble)
 
-        return bubbles, found_any_recipe
+        return bubbles, found_any_recipe, None
         
     if user_input == "明日菜價":
         
@@ -279,6 +280,9 @@ def handle_user_message(user_input):
         selected = get_top5_cheapest()
         vegs = [veg for veg, avg, pred, diff in selected]
         bubbles, found_any_recipe = find_recipes(vegs)
+
+        if error_msg:
+            return error_msg
         return FlexSendMessage(
             alt_text="今日便宜蔬菜建議食譜",
             contents={
@@ -302,6 +306,9 @@ def handle_user_message(user_input):
         # 可以支援多個菜名，用逗號或空格分隔
         vegs = re.split(r"[,、 ]+", user_input)
         bubbles, found_any_recipe = find_recipes(vegs)
+        if error_msg:
+            return error_msg
+            
         if not found_any_recipe:
             answer = chatgpt_reply(user_input)
             reply_obj = TextSendMessage(answer)
@@ -312,8 +319,7 @@ def handle_user_message(user_input):
                 alt_text=f"{user_input} 食譜",
                 contents={"type": "carousel", "contents": bubbles[:10]}
             )
-            
-        return reply_obj # <--- 統一在結尾返回
+
 # ============================
 # Webhook 入口
 # ============================
