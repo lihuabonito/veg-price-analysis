@@ -136,9 +136,8 @@ def chatgpt_reply(prompt):
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
-    except Exception as e:
-        return f"ChatGPT 發生錯誤: {e}"
-
+    except Exception as e:
+        return f"ChatGPT 發生錯誤: {e}"
 
 
 #Flex Recipe Bubble 模板
