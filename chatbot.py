@@ -131,13 +131,13 @@ client = OpenAI(api_key=OpenAI_API_key)
 
 def chatgpt_reply(prompt):
     try:
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model="gpt-4o",  # 或 "gpt-4"
-            input=prompt
+            messages=[{"role": "user", "content": prompt}]
         )
-        return response.output_text
-    except Exception as e:
-        return f"ChatGPT 發生錯誤: {e}"
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"ChatGPT 發生錯誤: {e}"
 
 
 
@@ -279,7 +279,7 @@ def handle_user_message(user_input):
     elif user_input == "建議食譜":
         selected = get_top5_cheapest()
         vegs = [veg for veg, avg, pred, diff in selected]
-        bubbles, found_any_recipe = find_recipes(vegs)
+        bubbles, found_any_recipe, error_msg = find_recipes(vegs)
 
         if error_msg:
             return error_msg
@@ -293,7 +293,7 @@ def handle_user_message(user_input):
     elif user_input.startswith("查看更多 "):
         # 從訊息抓出蔬菜名稱
         veg_name = user_input.replace("查看更多 ", "").replace(" 食譜", "")
-        bubbles, found_any_recipe = find_recipes([veg_name], show_all=True)
+        bubbles, found_any_recipe, error_msg = find_recipes([veg_name], show_all=True)
         return FlexSendMessage(
             alt_text=f"{veg_name} 完整食譜",
             contents={
@@ -305,7 +305,7 @@ def handle_user_message(user_input):
     else:
         # 可以支援多個菜名，用逗號或空格分隔
         vegs = re.split(r"[,、 ]+", user_input)
-        bubbles, found_any_recipe = find_recipes(vegs)
+        bubbles, found_any_recipe, error_msg = find_recipes(vegs)
         if error_msg:
             return error_msg
             
@@ -319,7 +319,7 @@ def handle_user_message(user_input):
                 alt_text=f"{user_input} 食譜",
                 contents={"type": "carousel", "contents": bubbles[:10]}
             )
-
+        return reply_obj
 # ============================
 # Webhook 入口
 # ============================
