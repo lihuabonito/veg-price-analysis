@@ -246,7 +246,7 @@ def handle_user_message(user_input):
                 matches = difflib.get_close_matches(veg, all_vegs, n=1, cutoff=0.6)
                 if matches:
                     suggestion = display_map.get(matches[0], matches[0])
-                    return [], False, TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")")
+                    return [], False, TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")
                 else:
                     answer = chatgpt_reply(f"用戶輸入：{veg}。只回答與蔬菜或食譜相關的問題，如果不是，請回答：請詢問與菜相關的問題")
                     
