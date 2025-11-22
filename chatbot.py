@@ -123,22 +123,9 @@ app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-OpenAI_API_key=os.getenv("OpenAI_API_key")
 
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 client = OpenAI(api_key=OpenAI_API_key)
-
-def chatgpt_reply(prompt):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"ChatGPT 發生錯誤: {e}"
-
 
 #Flex Recipe Bubble 模板
 def make_recipe_bubble(row, default_img, veg_display=None):
@@ -149,7 +136,7 @@ def make_recipe_bubble(row, default_img, veg_display=None):
             "url": row.get("圖片網址", default_img),
             "size": "full",
             "aspectRatio": "4:3",
-            "aspectMode": "fit"
+            "aspectMode": "cover"
         },
         "body": {
             "type": "box",
@@ -242,24 +229,42 @@ def handle_user_message(user_input):
                 df_recipe["輔助食材"].str.contains(veg_search, na=False)
             ]
             if recipes.empty:
-                matches = difflib.get_close_matches(veg, all_vegs, n=1, cutoff=0.6)
-                if matches:
-                    suggestion = display_map.get(matches[0], matches[0])
-                    return [], False, TextSendMessage(f"你是不是想查 {suggestion}？請輸入「建議食譜 {matches[0]}」查看食譜。")
-                else:
-                    answer = chatgpt_reply(f"用戶輸入：{veg}。只回答與蔬菜或食譜相關的問題，如果不是，請回答：請詢問與菜相關的問題")
-                    
-                    return [], False, TextSendMessage(answer)
-
+                bubble = {
+                    "type": "bubble",
+                    "hero": {
+                        "type": "image",
+                        "url": default_img,
+                        "size": "full",
+                        "aspectMode": "cover"
+                    },
+                    "body": {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": f"{veg_display} 找不到食譜",
+                                "weight": "bold",
+                                "size": "lg"
+                            },
+                            {
+                                "type": "text",
+                                "text": "暫無建議菜單",
+                                "size": "sm",
+                                "wrap": True
+                            }
+                        ]
+                    }
+                }
+                bubbles.append(bubble)
             else:
-                found_any_recipe = True
+                found_any_recipe = True 
                 to_show = recipes if show_all else recipes.head(2)
                 for _, row in to_show.iterrows():
                     bubble = make_recipe_bubble(row, default_img,veg_display=veg_display)
                     bubbles.append(bubble)
 
-        return bubbles, found_any_recipe, None
-        
+        return bubbles, found_any_recipe
     if user_input == "明日菜價":
         
         selected = get_top5_cheapest()
@@ -278,10 +283,8 @@ def handle_user_message(user_input):
     elif user_input == "建議食譜":
         selected = get_top5_cheapest()
         vegs = [veg for veg, avg, pred, diff in selected]
-        bubbles, found_any_recipe, error_msg = find_recipes(vegs)
+        bubbles, found_any_recipe = find_recipes(vegs)
 
-        if error_msg:
-            return error_msg
         return FlexSendMessage(
             alt_text="今日便宜蔬菜建議食譜",
             contents={
@@ -292,7 +295,7 @@ def handle_user_message(user_input):
     elif user_input.startswith("查看更多 "):
         # 從訊息抓出蔬菜名稱
         veg_name = user_input.replace("查看更多 ", "").replace(" 食譜", "")
-        bubbles, found_any_recipe, error_msg = find_recipes([veg_name], show_all=True)
+        bubbles, found_any_recipe = find_recipes([veg_name], show_all=True)
         return FlexSendMessage(
             alt_text=f"{veg_name} 完整食譜",
             contents={
@@ -304,21 +307,16 @@ def handle_user_message(user_input):
     else:
         # 可以支援多個菜名，用逗號或空格分隔
         vegs = re.split(r"[,、 ]+", user_input)
-        bubbles, found_any_recipe, error_msg = find_recipes(vegs)
-        if error_msg:
-            return error_msg
+        bubbles, found_any_recipe = find_recipes(vegs)
             
         if not found_any_recipe:
-            answer = chatgpt_reply(user_input)
-            reply_obj = TextSendMessage(answer)
+            return TextSendMessage(f"找不到「{user_input}」的食譜，請試試其他關鍵字～")
             
-        else:
             # 找到食譜，使用 Flex Message
-            reply_obj = FlexSendMessage(
-                alt_text=f"{user_input} 食譜",
-                contents={"type": "carousel", "contents": bubbles[:10]}
-            )
-        return reply_obj
+        return FlexSendMessage(
+            alt_text=f"{user_input} 食譜",
+            contents={"type": "carousel", "contents": bubbles[:10]}
+        )
 # ============================
 # Webhook 入口
 # ============================
