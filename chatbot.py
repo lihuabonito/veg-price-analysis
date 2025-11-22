@@ -127,17 +127,15 @@ OpenAI_API_key=os.getenv("OpenAI_API_key")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-openai.api_key=OpenAI_API_key
+client = OpenAI(api_key=OpenAI_API_key)
 
 def chatgpt_reply(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # 或 "gpt-4"
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=500
+        response = client.responses.create(
+            model="gpt-4o",  # 或 "gpt-4"
+            input=prompt
         )
-        return response.choices[0].message.content.strip()
+        return response.output_text
     except Exception as e:
         return f"ChatGPT 發生錯誤: {e}"
 
@@ -233,6 +231,7 @@ def handle_user_message(user_input):
 
     def find_recipes(vegs, show_all=False):
         bubbles = []
+        found_any_recipe = False 
         default_img = "https://raw.githubusercontent.com/lihua00120/chat-_bot/refs/heads/main/images/%E4%B8%89%E6%9D%AF%E8%A0%94%E8%8F%87.jpg"
         
         for veg in vegs:
@@ -253,12 +252,13 @@ def handle_user_message(user_input):
                     return TextSendMessage(answer)
 
             else:
+                found_any_recipe = True
                 to_show = recipes if show_all else recipes.head(2)
                 for _, row in to_show.iterrows():
                     bubble = make_recipe_bubble(row, default_img,veg_display=veg_display)
                     bubbles.append(bubble)
 
-        return bubbles
+        return bubbles, found_any_recipe
         
     if user_input == "明日菜價":
         
@@ -278,7 +278,7 @@ def handle_user_message(user_input):
     elif user_input == "建議食譜":
         selected = get_top5_cheapest()
         vegs = [veg for veg, avg, pred, diff in selected]
-        bubbles = find_recipes(vegs)
+        bubbles, found_any_recipe = find_recipes(vegs)
         return FlexSendMessage(
             alt_text="今日便宜蔬菜建議食譜",
             contents={
@@ -289,7 +289,7 @@ def handle_user_message(user_input):
     elif user_input.startswith("查看更多 "):
         # 從訊息抓出蔬菜名稱
         veg_name = user_input.replace("查看更多 ", "").replace(" 食譜", "")
-        bubbles = find_recipes([veg_name], show_all=True)  # 顯示全部食譜
+        bubbles, found_any_recipe = find_recipes([veg_name], show_all=True)
         return FlexSendMessage(
             alt_text=f"{veg_name} 完整食譜",
             contents={
@@ -301,19 +301,19 @@ def handle_user_message(user_input):
     else:
         # 可以支援多個菜名，用逗號或空格分隔
         vegs = re.split(r"[,、 ]+", user_input)
-        bubbles = find_recipes(vegs)
-        if bubbles:
-             return FlexSendMessage(
+        bubbles, found_any_recipe = find_recipes(vegs)
+        if not found_any_recipe:
+            answer = chatgpt_reply(user_input)
+            reply_obj = TextSendMessage(answer)
+            
+        else:
+            # 找到食譜，使用 Flex Message
+            reply_obj = FlexSendMessage(
                 alt_text=f"{user_input} 食譜",
                 contents={"type": "carousel", "contents": bubbles[:10]}
-              )
-        else:
-            # 如果找不到食譜，就交給 ChatGPT 回答
-            answer = chatgpt_reply(user_input)
-            return TextSendMessage(answer)
-
-
-
+            )
+            
+        return reply_obj # <--- 統一在結尾返回
 # ============================
 # Webhook 入口
 # ============================
@@ -347,75 +347,4 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
 
 
-"""#分詞 以防有人多打"""
-
-# 檢視資料
-#df.head(10)
-
-# import jieba
-
-# def cutProcess(sting):
-#     result = jieba.lcut(sting)
-#     result = " ".join(result)
-
-#     return result
-
-# df['quote'] = df['quote'].apply(cutProcess)
-
-# df.head(5)
-
-"""#訓練資料"""
-
-# data = df
-# training_documents = data['quote'].values.astype('U')
-# labels = data['category'].values.astype('U')
-
-# #切分训练集和测试集，分为80%训练集，20%测试集
-# X_train, X_test, y_train, y_test = train_test_split(training_documents, labels, test_size=0.1, random_state=12)
-
-
-# vectorizer = CountVectorizer(token_pattern='(?u)\\b\\w+\\b') # token_pattern='(?u)\\b\\w+\\b' 單字也計入
-# x_train = vectorizer.fit_transform(X_train)
-
-# # train
-# classifier = MultinomialNB (alpha=0.01) # change model type here
-# classifier.fit(x_train, y_train)
-
-# training_documents
-
-# for i in x_train:
-#     print("#:"i)
-
-"""#評估模型
-
-"""
-
-# x_test = vectorizer.transform(X_test)
-# classifier.score(x_test,y_test)
-
-# print(X_test)
-# predict(X_test)
-
-# def predict(raw_queries,n_top=1):
-#     raw_queries = [cutProcess(s) for s in raw_queries]
-# #     print(raw_queries)
-
-#     queries = vectorizer.transform(raw_queries)
-#     predict =  classifier.predict_proba(queries).tolist()
-#     predict = [{k:round(v,4) for k,v in zip(classifier.classes_[:3],qa[:3])} for qa in predict]
-#     predict = [ sorted(dictt.items(), key=lambda d: d[1], reverse=True) for dictt in predict]
-#     return predict
-
-# example = ['我有問題','修改公司資料','我想在台中市東山路附近找小雞上工上的工作','要怎麼變更公司電話','您好應徵者為何看不到我們需要出差的項目']
-
-# lists = predict(example)
-
-# for index,qa in enumerate(lists):
-#     print("question:",example[index])
-#     print("anser:", qa)
-
-#     print()
-
-# txt = input()
-# predict([txt])[0]
 
